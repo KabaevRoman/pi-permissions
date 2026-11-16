@@ -1,8 +1,8 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
-import { acquire } from '@kabaevroman/pi-code-core';
-import { decide, shellWords, withoutRedundantCd } from '@kabaevroman/pi-code-core/extensions/permissions';
-import { modes } from '@kabaevroman/pi-code-core/runtime/config';
-import { atomicWrite, canonical, hash, optionalText, humanReadable } from '@kabaevroman/pi-code-core/runtime/utils';
+import { acquire } from '@pi-ko/core';
+import { decide, shellWords, withoutRedundantCd } from '@pi-ko/core/extensions/permissions';
+import { modes } from '@pi-ko/core/runtime/config';
+import { atomicWrite, canonical, hash, optionalText, humanReadable } from '@pi-ko/core/runtime/utils';
 import { resolve, join, dirname } from 'node:path';
 export default function (pi: ExtensionAPI): void {
  const state=acquire(pi,'permissions');if(!state)return;const r=state.runtime;
