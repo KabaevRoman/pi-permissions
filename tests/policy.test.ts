@@ -1,5 +1,5 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';import {mkdtemp,rm,symlink,writeFile} from 'node:fs/promises';import {tmpdir} from 'node:os';import {join} from 'node:path';
-import {decide,shellWords} from '../lib/src/extensions/permissions.ts';
+import {decide,shellWords} from 'pi-code-core/extensions/permissions';
 import install from '../lib/src/features/permissions.ts';import {harness} from './helper.ts';
 const config:any={permissions:{allow:['Bash(npm test:*)'],ask:[],deny:[]},hooks:{}};
 test('shell prefix grammar accepts simple arguments and rejects compound/expansion escapes',async()=>{
