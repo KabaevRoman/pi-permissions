@@ -40,3 +40,12 @@ test('mode picker persists selection and Ask Everything never reuses grants',asy
  h.ctx.hasUI=true;h.runtime.state.mode='plan';
  await assert.rejects(h.commands.get('permissions').handler('mode fullAccess',h.ctx),/ExitPlanMode/);
 });
+test('wildcard session rules approve matching prefixes without touching policy files',async t=>{
+ const h=await harness(install);t.after(()=>h.close());
+ h.answers.push('Allow Bash(echo:*) for session');
+ await h.emit('tool_call',{toolName:'bash',input:{command:'echo hello world'}});
+ assert.ok(h.entries.some(e=>e.customType==='cc:permission-rule'&&e.data.rule==='Bash(echo:*)'));
+ h.ctx.hasUI=false;
+ assert.equal((await h.emit('tool_call',{toolName:'bash',input:{command:'echo again'}}))[0],undefined);
+ assert.equal((await h.emit('tool_call',{toolName:'bash',input:{command:'rm -rf x'}}))[0].block,true);
+});
