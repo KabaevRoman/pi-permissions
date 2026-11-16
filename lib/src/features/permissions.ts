@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { acquire } from '@kabaevroman/pi-code-core';
-import { decide, shellWords } from '@kabaevroman/pi-code-core/extensions/permissions';
+import { decide, shellWords, withoutRedundantCd } from '@kabaevroman/pi-code-core/extensions/permissions';
 import { modes } from '@kabaevroman/pi-code-core/runtime/config';
 import { atomicWrite, canonical, hash, optionalText, humanReadable } from '@kabaevroman/pi-code-core/runtime/utils';
 import { resolve, join, dirname } from 'node:path';
@@ -10,10 +10,10 @@ export default function (pi: ExtensionAPI): void {
  const choices = ['Safe — allow workspace reads and workflow operations', 'Ask Everything — approve every tool call', 'Full Access — allow all operations except explicit deny rules'];
  const selectableModes = ['safe', 'ask', 'fullAccess'] as const;
  // Session-scoped wildcard rules (Codex-style) merge into allow rules without touching policy files.
- const wildcards=(aliased:string,input:any,target?:string):string[]=>{
+ const wildcards=(aliased:string,input:any,target?:string,cwd=''):string[]=>{
   const out:string[]=[];
   if(aliased==='Bash'&&typeof input.command==='string'){
-   const words=shellWords(input.command);
+   const words=shellWords(withoutRedundantCd(input.command,cwd)??input.command);
    if(words?.length){if(words.length>1)out.push(`Bash(${words.slice(0,2).join(' ')}:*)`);out.push(`Bash(${words[0]}:*)`);}
   }else if(['Read','Write','Edit','NotebookEdit'].includes(aliased)&&target)out.push(`${aliased}(${dirname(target)}/**)`);
   else if(['Grep','Glob'].includes(aliased)&&target)out.push(`${aliased}(${target}/**)`);
@@ -68,7 +68,7 @@ export default function (pi: ExtensionAPI): void {
   const key=hash(JSON.stringify([e.toolName,inputHash,target,fingerprint,r.state.mode]));
   if(decision.action==='ask'&&(r.state.mode==='ask'||!grants.has(key))){
    if(!ctx.hasUI)return {block:true,reason:'Approval requires TUI/RPC UI'};
-   const sessionOptions=r.state.mode==='ask'?[]:['Allow this exact call for session',...wildcards(aliased,input,target).map(rule=>`Allow ${rule} for session`)];
+   const sessionOptions=r.state.mode==='ask'?[]:['Allow this exact call for session',...wildcards(aliased,input,target,ctx.cwd).map(rule=>`Allow ${rule} for session`)];
    const answer=await ctx.ui.select(`${e.toolName}: ${decision.reason}\n${formatDetail(input)}`,['Allow once',...sessionOptions,'Deny'],{signal:ctx.signal});
    if(!answer||answer==='Deny')return {block:true,reason:'Permission denied'};
    await r.reload(ctx);
