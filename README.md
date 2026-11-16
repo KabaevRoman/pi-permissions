@@ -1,6 +1,6 @@
 # @kabaevroman/pi-code-permissions
 
-Independently installable pi extension: permissions. Former package name: `pi-claude-permissions`.
+Independently installable pi extension: permissions.
 
 This extension depends on `@kabaevroman/pi-code-core@0.6.0`; it does not require any other extension.
 

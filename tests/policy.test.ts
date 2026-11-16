@@ -33,7 +33,7 @@ test('mode picker persists selection and Ask Everything never reuses grants',asy
  h.answers.push('Ask Everything — approve every tool call');
  await h.commands.get('permissions').handler('',h.ctx);
  assert.equal(h.runtime.state.mode,'ask');
- assert.ok(h.entries.some(e=>e.customType==='claude-compat:state'&&e.data.mode==='ask'));
+ assert.ok(h.entries.some(e=>e.customType==='code-compat:state'&&e.data.mode==='ask'));
  await h.emit('tool_call',{toolName:'read',input:{path:'example'}});
  h.ctx.hasUI=false;
  assert.equal((await h.emit('tool_call',{toolName:'read',input:{path:'example'}}))[0].block,true);
