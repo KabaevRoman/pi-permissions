@@ -2,7 +2,7 @@ import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { acquire } from '@kabaevroman/pi-code-core';
 import { decide } from '@kabaevroman/pi-code-core/extensions/permissions';
 import { modes } from '@kabaevroman/pi-code-core/runtime/config';
-import { atomicWrite, canonical, hash, optionalText } from '@kabaevroman/pi-code-core/runtime/utils';
+import { atomicWrite, canonical, hash, optionalText, humanReadable } from '@kabaevroman/pi-code-core/runtime/utils';
 import { resolve,join } from 'node:path';
 export default function (pi: ExtensionAPI): void {
  const state=acquire(pi,'permissions');if(!state)return;const r=state.runtime;
@@ -29,7 +29,7 @@ export default function (pi: ExtensionAPI): void {
    data.permissions??={};data.permissions[operation]=[...new Set([...(data.permissions[operation]??[]),value])];
    await atomicWrite(file,JSON.stringify(data,null,2)+'\n');r.message(`Saved ${operation} rule to ${file}`);
   }
-  await r.reload(ctx);r.message(JSON.stringify({mode:r.state.mode,rules:r.config.permissions,sessionApprovals:grants.size}));
+  await r.reload(ctx);r.message(humanReadable({mode:r.state.mode,rules:r.config.permissions,sessionApprovals:grants.size}));
  }});
  pi.on('tool_call',async(e,ctx)=>{
   if(r.tools.has(e.toolName))return;
@@ -44,7 +44,7 @@ export default function (pi: ExtensionAPI): void {
   const key=hash(JSON.stringify([e.toolName,inputHash,target,fingerprint,r.state.mode]));
   if(decision.action==='ask'&&(r.state.mode==='ask'||!grants.has(key))){
    if(!ctx.hasUI)return {block:true,reason:'Approval requires TUI/RPC UI'};
-   const answer=await ctx.ui.select(`${e.toolName}: ${decision.reason}\n${JSON.stringify(input)}`,r.state.mode==='ask'?['Allow once','Deny']:['Allow once','Allow this exact call for session','Deny'],{timeout:60000,signal:ctx.signal});
+   const answer=await ctx.ui.select(`${e.toolName}: ${decision.reason}\n${humanReadable(input)}`,r.state.mode==='ask'?['Allow once','Deny']:['Allow once','Allow this exact call for session','Deny'],{timeout:60000,signal:ctx.signal});
    if(!answer||answer==='Deny')return {block:true,reason:'Permission denied'};
    await r.reload(ctx);
    if(key!==hash(JSON.stringify([e.toolName,inputHash,target,fingerprint,r.state.mode]))||fingerprint!==JSON.stringify(r.config.permissions)||inputHash!==hash(JSON.stringify(e.input))||(typeof path==='string'&&target!==await canonical(resolve(ctx.cwd,path))))return {block:true,reason:'Policy or call target changed during approval; retry'};
