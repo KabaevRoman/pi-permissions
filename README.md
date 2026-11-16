@@ -2,7 +2,7 @@
 
 Independently installable pi extension: permissions. Former package name: `pi-claude-permissions`.
 
-This extension depends on `@kabaevroman/pi-code-core@0.5.0`; it does not require any other extension.
+This extension depends on `@kabaevroman/pi-code-core@0.6.0`; it does not require any other extension.
 
 For a release, publish `@kabaevroman/pi-code-core` first, then this package. Install this package through pi's package manager; its npm dependencies provide the shared core automatically. For local development, use the parent npm workspace and build core before running this extension. To distribute before publication, provide both core and extension tarballs.
 
@@ -17,8 +17,8 @@ publishing secret is needed. Enable GitHub Actions in this repository.
 Update `package.json` to the release version, commit it, then push a matching tag:
 
 ```sh
-git tag v0.5.0
-git push origin v0.5.0
+git tag v0.6.0
+git push origin v0.6.0
 ```
 
 Tags must equal the package version, optionally prefixed with `v`. The workflow
@@ -50,3 +50,22 @@ npm login --scope=@kabaevroman --auth-type=legacy --registry=https://npm.pkg.git
 Use your GitHub username and the token as the password. Authentication is required
 even for public GitHub npm packages. Keep credentials in your user configuration;
 never commit tokens. Install using the full scoped package name.
+
+## Permission modes
+
+Run `/permissions` or `/permissions mode` to open the mode picker:
+
+- **Safe** (`safe`): automatically allows workspace reads, read-only agents, and workflow tools. File edits, shell commands, and other operations require approval unless allowed by a policy rule.
+- **Ask Everything** (`ask`): asks before every tool call, including reads and calls covered by allow rules. Session approvals are not reused.
+- **Full Access** (`fullAccess`): allows operations without approval, including those covered by ask rules. Explicit deny rules still apply.
+
+Select directly with `/permissions mode safe`, `/permissions mode ask`, or
+`/permissions mode fullAccess`. The choice is saved with the session. To set a
+default for new sessions, set `permissions.defaultMode` in your
+`.claude/settings.json` (project settings require project trust).
+
+Use `/permissions status` to inspect the current mode and policy. Existing
+`default`, `acceptEdits`, `dontAsk`, and `bypassPermissions` modes remain supported.
+Planning restrictions still apply; exit planning through `ExitPlanMode` before
+changing permission modes. Full Access does not grant operating-system privileges
+or bypass external sandboxes.

@@ -7,12 +7,21 @@ import { resolve,join } from 'node:path';
 export default function (pi: ExtensionAPI): void {
  const state=acquire(pi,'permissions');if(!state)return;const r=state.runtime;
  const grants=new Set<string>();
+ const choices = ['Safe — allow workspace reads and workflow operations', 'Ask Everything — approve every tool call', 'Full Access — allow all operations except explicit deny rules'];
+ const selectableModes = ['safe', 'ask', 'fullAccess'] as const;
  pi.on('session_start',(_e,ctx)=>{grants.clear();for(const e of ctx.sessionManager.getBranch())if(e.type==='custom'&&e.customType==='cc:permission-grant'&&typeof (e.data as any)?.key==='string')grants.add((e.data as any).key);});
- pi.registerCommand('permissions',{description:'Inspect policy, set mode, or persist allow/ask/deny rules: /permissions mode acceptEdits; /permissions deny Bash(rm:*)',handler:async(args,ctx)=>{
-  const [operation,...rest]=args.trim().split(/\s+/);const value=rest.join(' ');
+ pi.registerCommand('permissions',{description:'Select Safe, Ask Everything, or Full Access; /permissions mode safe|ask|fullAccess; /permissions allow|ask|deny Tool',handler:async(args,ctx)=>{
+  let [operation,...rest]=args.trim().split(/\s+/);let value=rest.join(' ');
+  if(!operation || (operation==='mode' && !value)) {
+   if(r.state.mode==='plan')throw Error('ExitPlanMode approval is required');
+   if(!ctx.hasUI)throw Error('Use /permissions mode safe, ask or fullAccess');
+   const selected=await ctx.ui.select('Permission mode',choices);
+   if(!selected)return;
+   operation='mode';value=selectableModes[choices.indexOf(selected)];
+  }
   if(operation==='mode'){
-   if(!modes.includes(value as any)||value==='plan')throw Error('Use default, acceptEdits, dontAsk or bypassPermissions; enter planning with EnterPlanMode');
-   if(r.state.mode==='plan')throw Error('ExitPlanMode approval is required');r.state.mode=value as any;r.persist();
+   if(!modes.includes(value as any)||value==='plan')throw Error('Use safe, ask or fullAccess (legacy modes: default, acceptEdits, dontAsk, bypassPermissions); enter planning with EnterPlanMode');
+   if(r.state.mode==='plan')throw Error('ExitPlanMode approval is required');r.state.mode=value as any;grants.clear();r.persist();r.status(ctx);
   }else if(['allow','ask','deny'].includes(operation)){
    if(!/^[A-Za-z][\w]*(?:\(.*\))?$/.test(value))throw Error('Invalid tool rule');
    if(!ctx.isProjectTrusted())throw Error('Trust project configuration before writing project policy');
@@ -33,12 +42,12 @@ export default function (pi: ExtensionAPI): void {
   const decision=await decide(aliases[e.toolName]??e.toolName,input,r.state.mode,r.config,ctx.cwd,r.state.plan?.path);
   if(decision.action==='deny')return {block:true,reason:decision.reason};
   const key=hash(JSON.stringify([e.toolName,inputHash,target,fingerprint,r.state.mode]));
-  if(decision.action==='ask'&&!grants.has(key)){
+  if(decision.action==='ask'&&(r.state.mode==='ask'||!grants.has(key))){
    if(!ctx.hasUI)return {block:true,reason:'Approval requires TUI/RPC UI'};
-   const answer=await ctx.ui.select(`${e.toolName}: ${decision.reason}\n${JSON.stringify(input)}`,['Allow once','Allow this exact call for session','Deny'],{timeout:60000,signal:ctx.signal});
+   const answer=await ctx.ui.select(`${e.toolName}: ${decision.reason}\n${JSON.stringify(input)}`,r.state.mode==='ask'?['Allow once','Deny']:['Allow once','Allow this exact call for session','Deny'],{timeout:60000,signal:ctx.signal});
    if(!answer||answer==='Deny')return {block:true,reason:'Permission denied'};
    await r.reload(ctx);
-   if(fingerprint!==JSON.stringify(r.config.permissions)||inputHash!==hash(JSON.stringify(e.input))||(typeof path==='string'&&target!==await canonical(resolve(ctx.cwd,path))))return {block:true,reason:'Policy or call target changed during approval; retry'};
+   if(key!==hash(JSON.stringify([e.toolName,inputHash,target,fingerprint,r.state.mode]))||fingerprint!==JSON.stringify(r.config.permissions)||inputHash!==hash(JSON.stringify(e.input))||(typeof path==='string'&&target!==await canonical(resolve(ctx.cwd,path))))return {block:true,reason:'Policy or call target changed during approval; retry'};
    if(answer==='Allow this exact call for session'){grants.add(key);pi.appendEntry('cc:permission-grant',{key});}
   }
  });

@@ -19,3 +19,24 @@ test('native approvals bind session grants to exact inputs and current policy',a
  h.ctx.hasUI=false;assert.equal((await h.emit('tool_call',call))[0],undefined);
  assert.equal((await h.emit('tool_call',{...call,input:{command:'echo two'}}))[0].block,true);
 });
+test('selectable modes enforce safe defaults, per-call approval and full access',async()=>{
+ const c:any={permissions:{allow:['Bash'],ask:['Write'],deny:['Edit']}};
+ assert.equal((await decide('Read',{file_path:'/tmp/example'},'safe',c,'/tmp')).action,'allow');
+ assert.equal((await decide('Write',{file_path:'/tmp/example'},'safe',config,'/tmp')).action,'ask');
+ assert.equal((await decide('Bash',{command:'echo hi'},'ask',c,'/tmp')).action,'ask');
+ assert.equal((await decide('Read',{},'ask',c,'/tmp')).action,'ask');
+ assert.equal((await decide('Write',{},'fullAccess',c,'/tmp')).action,'allow');
+ for(const mode of ['safe','ask','fullAccess'] as const)assert.equal((await decide('Edit',{},mode,c,'/tmp')).action,'deny');
+});
+test('mode picker persists selection and Ask Everything never reuses grants',async t=>{
+ const h=await harness(install);t.after(()=>h.close());
+ h.answers.push('Ask Everything — approve every tool call');
+ await h.commands.get('permissions').handler('',h.ctx);
+ assert.equal(h.runtime.state.mode,'ask');
+ assert.ok(h.entries.some(e=>e.customType==='claude-compat:state'&&e.data.mode==='ask'));
+ await h.emit('tool_call',{toolName:'read',input:{path:'example'}});
+ h.ctx.hasUI=false;
+ assert.equal((await h.emit('tool_call',{toolName:'read',input:{path:'example'}}))[0].block,true);
+ h.ctx.hasUI=true;h.runtime.state.mode='plan';
+ await assert.rejects(h.commands.get('permissions').handler('mode fullAccess',h.ctx),/ExitPlanMode/);
+});
